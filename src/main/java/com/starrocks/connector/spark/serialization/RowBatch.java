@@ -126,7 +126,7 @@ public class RowBatch {
                             schema.size(), fieldVectors.size());
                     throw new StarrocksException("Load StarRocks data failed, schema size of fetch data is wrong.");
                 }
-                if (fieldVectors.size() == 0 || root.getRowCount() == 0) {
+                if (fieldVectors.isEmpty() || root.getRowCount() == 0) {
                     logger.debug("One batch in arrow has no data.");
                     continue;
                 }
@@ -135,6 +135,7 @@ public class RowBatch {
                 for (int i = 0; i < rowCountInOneBatch; ++i) {
                     rowBatch.add(new Row(fieldVectors.size()));
                 }
+                // 将 Arrow 列式数据转换成 Row 行数据
                 convertArrowToRowBatch();
                 readRowCount += root.getRowCount();
             }
@@ -163,6 +164,9 @@ public class RowBatch {
         rowBatch.get(readRowCount + rowIndex).put(obj);
     }
 
+    /**
+     * 将 Arrow 列式数据转换成 Row 行数据
+     */
     public void convertArrowToRowBatch() throws Exception {
         try {
             for (int col = 0; col < fieldVectors.size(); col++) {
@@ -353,6 +357,7 @@ public class RowBatch {
             logger.error(errMsg);
             throw new NoSuchElementException(errMsg);
         }
+        // 递增获取一行数据
         return rowBatch.get(offsetInRowBatch++).getCols();
     }
 

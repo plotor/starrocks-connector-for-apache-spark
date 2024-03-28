@@ -24,7 +24,9 @@ import java.util.Objects;
 
 public class QueryPlan {
     private int status;
+    // 编码后的 Query Plan
     private String opaqued_query_plan;
+    // tabletId -> Tablet 映射
     private Map<String, Tablet> partitions;
 
     public int getStatus() {

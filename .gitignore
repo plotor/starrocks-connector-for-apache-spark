@@ -32,3 +32,4 @@ buildNumber.properties
 !.gitignore
 
 gen-thrift
+spark-warehouse

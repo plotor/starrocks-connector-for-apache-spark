@@ -33,11 +33,14 @@ import java.util.Set;
  * Starrocks RDD partition info.
  */
 public class PartitionDefinition implements Serializable, Comparable<PartitionDefinition> {
+
     private final String database;
     private final String table;
-
+    /* BE 节点信息 */
     private final String beAddress;
+    /* 位于该 BE 上 Tablet ID 集合 */
     private final Set<Long> tabletIds;
+    /* 编码后的 Query Plan */
     private final String queryPlan;
     private final String serializedSettings;
 

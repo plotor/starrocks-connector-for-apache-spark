@@ -134,7 +134,8 @@ public class RestService implements Serializable {
             try {
                 CloseableHttpResponse response = httpClient.execute(request, context);
                 status = response.getStatusLine().toString();
-                responseEntity = response.getEntity() == null ? null : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                responseEntity =
+                        response.getEntity() == null ? null : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
                     logger.warn("Failed to get response from StarRocks FE {}, http status is {}, entity: {}",
                             request.getURI(), status, responseEntity);
@@ -286,13 +287,15 @@ public class RestService implements Serializable {
         String[] tableIdentifiers = parseIdentifier(cfg.getProperty(STARROCKS_TABLE_IDENTIFIER), logger);
         String sql = "select " + cfg.getProperty(STARROCKS_READ_FIELD, "*") +
                 " from `" + tableIdentifiers[0] + "`.`" + tableIdentifiers[1] + "`";
-        if (!StringUtils.isEmpty(cfg.getProperty(STARROCKS_FILTER_QUERY))) {
+        if (StringUtils.isNotEmpty(cfg.getProperty(STARROCKS_FILTER_QUERY))) {
             sql += " where " + cfg.getProperty(STARROCKS_FILTER_QUERY);
         }
         logger.debug("Query SQL Sending to StarRocks FE is: '{}'.", sql);
 
+        // _query_plan
         HttpPost httpPost = new HttpPost(getUriStr(cfg, logger) + QUERY_PLAN);
         String entity = "{\"sql\": \"" + sql + "\"}";
+        System.out.println("find partitions: " + sql);
         logger.debug("Post body Sending to StarRocks FE is: '{}'.", entity);
         StringEntity stringEntity = new StringEntity(entity, StandardCharsets.UTF_8);
         stringEntity.setContentEncoding("UTF-8");
@@ -300,9 +303,13 @@ public class RestService implements Serializable {
         httpPost.setEntity(stringEntity);
 
         String resStr = send(cfg, httpPost, logger);
+        System.out.println("query plan:\n" + resStr);
         logger.debug("Find partition response is '{}'.", resStr);
-        QueryPlan queryPlan = getQueryPlan(resStr, logger);
+        // 解析 JSON 响应体为 QueryPlan 对象
+        QueryPlan queryPlan = parseQueryPlan(resStr, logger);
+        // BE -> Tablet ID 集合映射
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan, logger);
+        // 封装成为 PartitionDefinition 集合返回
         return tabletsMapToPartition(
                 cfg,
                 be2Tablets,
@@ -321,7 +328,7 @@ public class RestService implements Serializable {
      * @throws StarrocksException throw when translate failed.
      */
     @VisibleForTesting
-    static QueryPlan getQueryPlan(String response, Logger logger) throws StarrocksException {
+    static QueryPlan parseQueryPlan(String response, Logger logger) throws StarrocksException {
         ObjectMapper mapper = new ObjectMapper();
         QueryPlan queryPlan;
         try {
@@ -461,9 +468,13 @@ public class RestService implements Serializable {
                 Set<Long> partitionTablets = new HashSet<>(beInfo.getValue().subList(
                         first, Math.min(beInfo.getValue().size(), first + tabletsSize)));
                 first = first + tabletsSize;
-                PartitionDefinition partitionDefinition =
-                        new PartitionDefinition(database, table, cfg,
-                                beInfo.getKey(), partitionTablets, opaquedQueryPlan);
+                PartitionDefinition partitionDefinition = new PartitionDefinition(
+                        database,
+                        table,
+                        cfg,
+                        beInfo.getKey(),
+                        partitionTablets,
+                        opaquedQueryPlan);
                 logger.debug("Generate one PartitionDefinition '{}'.", partitionDefinition);
                 partitions.add(partitionDefinition);
             }

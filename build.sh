@@ -57,6 +57,7 @@ else
     exit 1
 fi
 
+# mvn clean package -DskipTests -Pspark-3.3 -Drat.skip=true
 ${MVN_CMD} clean package -DskipTests -Pspark-${spark_version}
 
 echo "*********************************************************************"

@@ -39,16 +39,22 @@ public final class InferSchema {
 
     public static StructType inferSchema(Map<String, String> options) {
         SimpleStarRocksConfig config = new SimpleStarRocksConfig(options);
+        // 获取目标库表的 Column 信息
         StarRocksSchema starocksSchema = StarRocksConnector.getSchema(config);
         return inferSchema(starocksSchema, config);
     }
 
+    /**
+     * 将目标 SR 库表的 Column 信息转换封装成 Spark StructType 对象
+     */
     public static StructType inferSchema(StarRocksSchema starRocksSchema, StarRocksConfig config) {
         String[] inputColumns = config.getColumns();
         List<StarRocksField> starRocksFields;
         if (inputColumns == null || inputColumns.length == 0) {
             starRocksFields = starRocksSchema.getColumns();
-        } else {
+        }
+        // 在配置中指定了 column，需要校验这些 column 是否存在
+        else {
             starRocksFields = new ArrayList<>();
             List<String> nonExistedColumns = new ArrayList<>();
             for (String column : inputColumns) {
@@ -67,6 +73,7 @@ public final class InferSchema {
         }
 
         Map<String, StructField> customTypes = parseCustomTypes(config.getColumnTypes());
+        // 将 SR Field 转换成 Spark Field
         List<StructField> fields = new ArrayList<>();
         for (StarRocksField field : starRocksFields) {
             if (customTypes.containsKey(field.getName())) {
@@ -76,12 +83,13 @@ public final class InferSchema {
             }
         }
 
+        // 封装 Filed 为 StructType
         return DataTypes.createStructType(fields);
     }
 
     static Map<String, StructField> parseCustomTypes(String columnTypes) {
         if (columnTypes == null) {
-            return new HashMap<>();
+            return new HashMap<>(0);
         }
 
         Map<String, StructField> customTypes = new HashMap<>();
@@ -93,10 +101,14 @@ public final class InferSchema {
     }
 
     static StructField inferStructField(StarRocksField field) {
+        // 映射 SR 类型到 Spark 类型
         DataType dataType = inferDataType(field);
-
         return new StructField(field.getName(), dataType, true, Metadata.empty());
     }
+
+    /**
+     * 映射 SR 类型到 Spark 类型
+     */
     static DataType inferDataType(StarRocksField field) {
         String type = field.getType().toLowerCase(Locale.ROOT);
         switch (type) {

@@ -34,8 +34,8 @@ import scala.math.min
 
 
 private[sql] class StarrocksRelation(
-    val sqlContext: SQLContext, parameters: Map[String, String])
-    extends BaseRelation with TableScan with PrunedScan with PrunedFilteredScan with InsertableRelation {
+                                      val sqlContext: SQLContext, parameters: Map[String, String])
+  extends BaseRelation with TableScan with PrunedScan with PrunedFilteredScan with InsertableRelation {
 
   private lazy val cfg = {
     val conf = new SparkSettings(sqlContext.sparkContext.getConf)
@@ -47,7 +47,8 @@ private[sql] class StarrocksRelation(
     min(cfg.getProperty(STARROCKS_FILTER_QUERY_IN_MAX_COUNT, "100").toInt,
       STARROCKS_FILTER_QUERY_IN_VALUE_UPPER_LIMIT)
 
-  private lazy val lazySchema = InferSchema.inferSchema(cfg.getPropertyMap)
+  // 基于 JDBC 获取库表的 column 信息，封装成 Spark StructType 对象
+  private lazy val lazySchema: StructType = InferSchema.inferSchema(cfg.getPropertyMap)
 
   private lazy val dialect = JdbcDialects.get("")
 
@@ -65,21 +66,27 @@ private[sql] class StarrocksRelation(
 
   // PrunedFilteredScan
   override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
+    // paramWithScan 用于封装 scan 时候的一些参数设置
     val paramWithScan = mutable.LinkedHashMap[String, String]() ++ parameters
 
     // filter where clause can be handled by StarRocks BE
+    // 裁剪子句
     val filterWhereClause: String = {
       filters.flatMap(Utils.compileFilter(_, dialect, inValueLengthLimit))
-          .map(filter => s"($filter)").mkString(" and ")
+        .map(filter => s"($filter)").mkString(" and ")
     }
 
     // required columns for column pruner
     if (requiredColumns != null && requiredColumns.length > 0) {
-      paramWithScan += (ConfigurationOptions.STARROCKS_READ_FIELD ->
-          requiredColumns.map(Utils.quote).mkString(","))
+      // 设置 starrocks.read.field 参数，列投影
+      paramWithScan += (
+        ConfigurationOptions.STARROCKS_READ_FIELD -> requiredColumns.map(Utils.quote).mkString(",")
+        )
     } else {
-      paramWithScan += (ConfigurationOptions.STARROCKS_READ_FIELD ->
-          lazySchema.fields.map(f => f.name).mkString(","))
+      // 没有设置的话则返回所有的列
+      paramWithScan += (
+        ConfigurationOptions.STARROCKS_READ_FIELD -> lazySchema.fields.map(f => f.name).mkString(",")
+        )
     }
 
     if (filters != null && filters.length > 0) {
@@ -87,6 +94,7 @@ private[sql] class StarrocksRelation(
         .filter(filters => filters.nonEmpty)
         .map(filters => " and (" + filters + ")")
         .getOrElse("")
+      // 设置 starrocks.filter.query 裁剪参数
       paramWithScan += (ConfigurationOptions.STARROCKS_FILTER_QUERY -> (filterWhereClause + userFilters))
     }
 
@@ -94,6 +102,7 @@ private[sql] class StarrocksRelation(
   }
 
   override def insert(data: DataFrame, overwrite: Boolean): Unit = {
+    data.show()
     data.write
       .format("starrocks")
       .options(cfg.getPropertyMap)

@@ -207,8 +207,9 @@ public class ReadWriteITTest extends ITTestBase {
 
         List<List<Object>> joinExpectedData = new ArrayList<>();
         joinExpectedData.add(Arrays.asList(1, "2", 3,  1, "2", 3));
-        List<Row> readRows = spark.sql("SELECT a.*, b.* FROM sr_table a join sr_table b on a.id=b.id").collectAsList();
-        verifyRows(joinExpectedData, readRows);
+        Dataset<Row> df = spark.sql("SELECT a.*, b.* FROM sr_table a join sr_table b on a.id=b.id");
+        df.show();
+        verifyRows(joinExpectedData, df.collectAsList());
 
         spark.stop();
     }

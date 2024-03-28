@@ -186,7 +186,7 @@ public class TestRestService {
         expected.setStatus(200);
         expected.setOpaqued_query_plan("query_plan");
 
-        QueryPlan actual = RestService.getQueryPlan(res, logger);
+        QueryPlan actual = RestService.parseQueryPlan(res, logger);
         Assert.assertEquals(expected, actual);
 
         String notJsonRes = "not json";
@@ -214,7 +214,7 @@ public class TestRestService {
                 + "\"11021\":{\"routings\":[\"be3\"],\"version\":3,\"versionHash\":1,\"schemaHash\":1}},"
                 + "\"opaqued_query_plan\":\"query_plan\",\"status\":200}";
 
-        QueryPlan queryPlan = RestService.getQueryPlan(res, logger);
+        QueryPlan queryPlan = RestService.parseQueryPlan(res, logger);
 
         List<Long> be1Tablet = new ArrayList<>();
         be1Tablet.add(11017L);
@@ -232,14 +232,14 @@ public class TestRestService {
                 + "\"opaqued_query_plan\":\"query_plan\",\"status\":200}";
         thrown.expect(StarrocksException.class);
         thrown.expectMessage(startsWith("Cannot choice StarRocks BE for tablet"));
-        RestService.selectBeForTablet(RestService.getQueryPlan(noBeRes, logger), logger);
+        RestService.selectBeForTablet(RestService.parseQueryPlan(noBeRes, logger), logger);
 
         String notNumberRes = "{\"partitions\":{"
                 + "\"11021xxx\":{\"routings\":[\"be1\"],\"version\":3,\"versionHash\":1,\"schemaHash\":1}},"
                 + "\"opaqued_query_plan\":\"query_plan\",\"status\":200}";
         thrown.expect(StarrocksException.class);
         thrown.expectMessage(startsWith("Parse tablet id "));
-        RestService.selectBeForTablet(RestService.getQueryPlan(noBeRes, logger), logger);
+        RestService.selectBeForTablet(RestService.parseQueryPlan(noBeRes, logger), logger);
     }
 
     @Test

@@ -33,12 +33,18 @@ private[spark] abstract class AbstractStarrocksRDD[T: ClassTag](
     val params: Map[String, String] = Map.empty)
     extends RDD[T](sc, Nil) {
 
+  /**
+   * 获取目标库表的 partition 信息
+   */
   override def getPartitions: Array[Partition] = {
     starrocksPartitions.zipWithIndex.map { case (starrocksPartition, idx) =>
       new StarrocksPartition(id, idx, starrocksPartition)
     }.toArray
   }
 
+  /**
+   * 获取指定 Partition 对应的 BE 节点信息
+   */
   override def getPreferredLocations(split: Partition): Seq[String] = {
     val starrocksSplit = split.asInstanceOf[StarrocksPartition]
     Seq(starrocksSplit.starrocksPartition.getBeAddress)

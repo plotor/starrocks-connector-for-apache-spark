@@ -53,6 +53,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
   protected var eos: AtomicBoolean = new AtomicBoolean(false)
   protected var rowBatch: RowBatch = _
   // flag indicate if support deserialize Arrow to RowBatch asynchronously
+  // 是否异步将 Arrow 格式数据转换为 RowBatch 对象，默认为 false
   protected var deserializeArrowToRowBatchAsync: Boolean = Try {
     settings.getProperty(STARROCKS_DESERIALIZE_ARROW_ASYNC, STARROCKS_DESERIALIZE_ARROW_ASYNC_DEFAULT.toString).toBoolean
   } getOrElse {
@@ -166,6 +167,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
    */
   def hasNext: Boolean = {
     var hasNext = false
+    // 异步模式
     if (deserializeArrowToRowBatchAsync && asyncThreadStarted) {
       // support deserialize Arrow to RowBatch asynchronously
       if (rowBatch == null || !rowBatch.hasNext) {
@@ -185,7 +187,9 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
       } else {
         hasNext = true
       }
-    } else {
+    }
+    // 同步模式
+    else {
       // Arrow data was acquired synchronously during the iterative process
       if (!eos.get && (rowBatch == null || !rowBatch.hasNext)) {
         if (rowBatch != null) {
@@ -195,6 +199,7 @@ class ScalaValueReader(partition: PartitionDefinition, settings: Settings) {
         val nextBatchParams = new TScanNextBatchParams
         nextBatchParams.setContext_id(contextId)
         nextBatchParams.setOffset(offset)
+        // 发送 Thrift RPC 请求 BE 节点获取数据；
         val nextResult = client.getNext(nextBatchParams)
         eos.set(nextResult.isEos)
         if (!eos.get) {

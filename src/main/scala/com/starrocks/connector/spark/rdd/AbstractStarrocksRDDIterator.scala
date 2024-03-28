@@ -42,6 +42,7 @@ private[spark] abstract class AbstractStarrocksRDDIterator[T](
     val valueReaderName = settings.getProperty(STARROCKS_VALUE_READER_CLASS)
     logDebug(s"Use value reader '$valueReaderName'.")
     val cons = Class.forName(valueReaderName).getDeclaredConstructor(classOf[PartitionDefinition], classOf[Settings])
+    // 采用 ScalaStarrocksRowValueReader 实现
     cons.newInstance(partition, settings).asInstanceOf[ScalaValueReader]
   }
 
@@ -55,6 +56,7 @@ private[spark] abstract class AbstractStarrocksRDDIterator[T](
     if (context.isInterrupted()) {
       throw new TaskKilledException
     }
+    // 执行这里的时候会触发延迟初始化 reader
     reader.hasNext
   }
 
